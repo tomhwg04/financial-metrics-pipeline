@@ -1,0 +1,7 @@
+# Treat SQL files as source code
+*.sql linguist-language=SQL
+*.sql linguist-detectable=true
+
+# Treat documentation as non-code
+docs/** linguist-documentation
+README.md linguist-documentation
