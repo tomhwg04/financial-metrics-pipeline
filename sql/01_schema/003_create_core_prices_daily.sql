@@ -10,5 +10,6 @@ CREATE TABLE core.prices_daily(
     source varchar(40) NOT NULL,
     ingested_at datetime2 NOT NULL,
     core_created_at datetime2 NOT NULL DEFAULT(SYSDATETIME()),
+    core_last_updated_at datetime2 NOT NULL DEFAULT(SYSDATETIME()),
     PRIMARY KEY(symbol, trade_date)
 );

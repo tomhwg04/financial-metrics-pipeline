@@ -27,7 +27,8 @@ SET
     c.adj_close = b.adj_close,
     c.volume = b.volume,
     c.source = b.source,
-    c.ingested_at = b.ingested_at
+    c.ingested_at = b.ingested_at,
+    c.core_last_updated_at = SYSDATETIME()
 FROM core.prices_daily c
 JOIN #best_rows b
 ON c.symbol = b.symbol AND c.trade_date = b.trade_date
@@ -37,7 +38,6 @@ WHERE
         b.source_priority = CASE WHEN c.source = 'YahooFinance' THEN 1 ELSE 2 END 
         AND b.ingested_at > c.ingested_at
     );
-
 
 INSERT INTO core.prices_daily(symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at)
 SELECT symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at
