@@ -2,14 +2,17 @@ IF OBJECT_ID('tempdb..#best_rows') IS NOT NULL
     DROP TABLE #best_rows;
 
 WITH base_data AS (
-    SELECT symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at, CASE WHEN source = 'YahooFinance' THEN 1 ELSE 2 END AS source_priority
+    SELECT row_id, batch_id, symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at, CASE WHEN source = 'YahooFinance' THEN 1 ELSE 2 END AS source_priority
     FROM stg.prices_daily
 ), 
     ranked_data AS (
     SELECT *,
     ROW_NUMBER() OVER (
         PARTITION BY symbol, trade_date
-        ORDER BY source_priority ASC, ingested_at DESC
+        ORDER BY source_priority ASC, 
+        ingested_at DESC,
+        batch_id DESC,
+        row_id DESC
     ) AS rn
     FROM base_data
 )
