@@ -15,10 +15,11 @@ Data is loaded into a staging layer (stg) and transformed into a core layer (cor
 
 ```text
 sql/
-    00_admin    -- setup / utility scripts
-    01_schema   -- create and alter table scripts
-    02_seed     -- test data for stg
-    05_queries  -- load logic (stg → core)
+    00_admin      -- setup / utility scripts
+    01_schema     -- create and alter table scripts
+    02_seed       -- test data for stg
+    04_procedures -- stored procedures for reusable data pipeline logic (e.g. upserts)
+    05_queries    -- legacy and ad-hoc queries (initial load logic, testing)
 ```
 
 ## Initial Setup
@@ -38,13 +39,16 @@ sql/
 5. Apply schema migration for existing core tables:  
   `sql/01_schema/004_alter_core_prices_daily_add_last_updated.sql`
 
+6. Create upsert procedure:  
+  `sql/04_procedures/001_usp_upsert_prices_daily.sql`
+
 ## Development Workflow
 
 1. Run seed script:  
   `sql/02_seed/001_seed_stg_prices_daily_test_cases.sql`
 
-2. Run load script:  
-   `sql/05_queries/001_load_core_prices_daily.sql`
+2. Execute upsert procedure:  
+   `EXEX core.upsert_prices_daily;`
 
 3. Verify results in:  
   `core.prices_daily`
@@ -62,3 +66,4 @@ The seed script covers the following scenarios:
 
 - Seed scripts should only be executed in the dev database.
 - They will truncate staging and core tables.
+- legacy query-based version for upserting still exists in sql/05_queries/...
