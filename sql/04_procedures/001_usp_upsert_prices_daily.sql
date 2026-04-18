@@ -1,10 +1,20 @@
-CREATE OR ALTER PROCEDURE core.upsert_prices_daily AS
+CREATE OR ALTER PROCEDURE core.upsert_prices_daily 
+    @symbol varchar(20) = NULL,
+    @trade_date DATE = NULL,
+    @source varchar(40) = NULL
+AS
 BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         WITH base_data AS (
             SELECT row_id, batch_id, symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at, CASE WHEN source = 'YahooFinance' THEN 1 ELSE 2 END AS source_priority
             FROM stg.prices_daily
+            WHERE (@symbol IS NULL
+            OR symbol = @symbol)
+            AND (@trade_date IS NULL
+            OR trade_date = @trade_date)
+            AND (@source IS NULL
+            OR source = @source)
         ), 
             ranked_data AS (
             SELECT *,

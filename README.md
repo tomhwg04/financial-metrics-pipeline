@@ -9,7 +9,7 @@ Data is loaded into a staging layer (stg) and transformed into a core layer (cor
 - dev and prod databases
 - staging and core schemas
 - daily prices staging and core tables
-- load logic from `stg.prices_daily` to `core.prices_daily`
+- upsert procedure from `stg.prices_daily` to `core.prices_daily` with optional filtering by `symbol`, `trade_date` and `source`
 
 ## Project Structure
 
@@ -52,6 +52,29 @@ sql/
 
 3. Verify results in:  
   `core.prices_daily`
+
+## Procedure Parameters
+
+The upsert procedure supports optional filtering parameters.
+If a parameter is provided, only the matching subset of staging data is processed.
+If no parameters are provided, all staging data is processed.
+
+Examples:  
+
+Load all data:  
+`EXEC core.upsert_prices_daily;`
+
+Filter by symbol:  
+`EXEC core.upsert_prices_daily @symbol = 'AAPL';`
+
+Filter by trade date:  
+`EXEC core.upsert_prices_daily @trade_date = '2026-04-15';`
+
+Filter by source:  
+`EXEC core.upsert_prices_daily @source = 'CSV';`
+
+Combine filters:  
+`EXEC core.upsert_prices_daily @symbol = 'AAPL', @trade_date = '2026-04-15';`
 
 ## Seed Test Cases
 
