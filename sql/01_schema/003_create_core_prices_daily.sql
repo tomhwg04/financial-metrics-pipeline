@@ -11,5 +11,5 @@ CREATE TABLE core.prices_daily(
     ingested_at datetime2 NOT NULL,
     core_created_at datetime2 NOT NULL DEFAULT(SYSDATETIME()),
     core_last_updated_at datetime2 NOT NULL DEFAULT(SYSDATETIME()),
-    PRIMARY KEY(symbol, trade_date)
+    CONSTRAINT PK_core_prices_daily PRIMARY KEY(symbol, trade_date)
 );

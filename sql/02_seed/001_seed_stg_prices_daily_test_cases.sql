@@ -151,4 +151,58 @@ VALUES(
     NULL,
     3059860,
     'YahooFinance'
+);
+
+-- Test case 5: Inactive source exclusion case
+-- Known but inactive source shoult not be loaded into core
+INSERT INTO stg.prices_daily(
+    batch_id, 
+    symbol, 
+    trade_date, 
+    [open], 
+    high, 
+    low, 
+    [close], 
+    adj_close, 
+    volume, 
+    source
 )
+VALUES(
+    6,
+    'SAP',
+    '2026-04-15',
+    143.52,
+    146.66,
+    143.52,
+    146.66,
+    146.66,
+    1596207,
+    'TwelveData'
+);
+
+-- Test case 6: Unknown source exclusion case
+-- Source without config entry should not be loaded into core
+INSERT INTO stg.prices_daily(
+    batch_id, 
+    symbol, 
+    trade_date, 
+    [open], 
+    high, 
+    low, 
+    [close], 
+    adj_close, 
+    volume, 
+    source
+)
+VALUES(
+    7,
+    'BAYN',
+    '2026-04-15',
+    41.07,
+    41.65,
+    40.75,
+    40.75,
+    40.75,
+    2039584,
+    'Finnhub'
+);

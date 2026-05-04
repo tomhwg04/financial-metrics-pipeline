@@ -7,14 +7,17 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRY
         WITH base_data AS (
-            SELECT row_id, batch_id, symbol, trade_date, [open], high, low, [close], adj_close, volume, source, ingested_at, CASE WHEN source = 'YahooFinance' THEN 1 ELSE 2 END AS source_priority
-            FROM stg.prices_daily
+            SELECT row_id, batch_id, symbol, trade_date, [open], high, low, [close], adj_close, volume, p.source, ingested_at, sp.priority AS source_priority
+            FROM stg.prices_daily p
+            JOIN config.source_priority sp
+            ON p.source = sp.source
+            AND sp.is_active = 1
             WHERE (@symbol IS NULL
-            OR symbol = @symbol)
+            OR p.symbol = @symbol)
             AND (@trade_date IS NULL
-            OR trade_date = @trade_date)
+            OR p.trade_date = @trade_date)
             AND (@source IS NULL
-            OR source = @source)
+            OR p.source = @source)
         ), 
             ranked_data AS (
             SELECT *,
@@ -47,10 +50,12 @@ BEGIN
                 FROM core.prices_daily c
                 JOIN #best_rows b
                 ON c.symbol = b.symbol AND c.trade_date = b.trade_date
+                JOIN config.source_priority current_sp
+                ON c.source = current_sp.source
                 WHERE
-                    b.source_priority < CASE WHEN c.source = 'YahooFinance' THEN 1 ELSE 2 END 
+                    b.source_priority < current_sp.priority 
                     OR (
-                        b.source_priority = CASE WHEN c.source = 'YahooFinance' THEN 1 ELSE 2 END 
+                        b.source_priority = current_sp.priority 
                         AND b.ingested_at > c.ingested_at
                     );
 
@@ -62,7 +67,7 @@ BEGIN
                     FROM core.prices_daily c
                     WHERE c.symbol = b.symbol
                     AND c.trade_date = b.trade_date
-                )
+                );
                 COMMIT;
     END TRY
     BEGIN CATCH

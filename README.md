@@ -1,8 +1,16 @@
 # Financial Metrics SQL Project
 
-This project implements a simple data pipeline for financial market data using the Microsoft SQL Server.
+This project implements a simple data pipeline for financial market data using Microsoft SQL Server.
 
-Data is loaded into a staging layer (stg) and transformed into a core layer (core) with deduplication, source prioritization and upsert logic.
+Data is loaded into a staging layer (`stg`) and transformed into a core layer (`core`) with deduplication, source prioritization and upsert logic.
+
+## Architecture
+
+The pipeline is structured into three logical layers:  
+
+- `stg` (staging): raw input data
+- `core`: cleaned, deduplicated and business-ready data
+- `config`: configuration tables controlling pipeline behaviour (e.g. source prioritization)
 
 ## Current Scope
 
@@ -39,25 +47,34 @@ sql/
 5. Apply schema migration for existing core tables:  
   `sql/01_schema/004_alter_core_prices_daily_add_last_updated.sql`
 
-6. Create upsert procedure:  
+6. Create source priority table:  
+  `sql/01_schema/005_create_config_source_priority.sql`
+
+7. Seed source priority configuration:  
+  `sql/02_seed/002_seed_config_source_priority.sql`
+
+8. Create upsert procedure:  
   `sql/04_procedures/001_usp_upsert_prices_daily.sql`
 
 ## Development Workflow
 
-1. Run seed script:  
+1. Run config seed script:  
+  `sql/02_seed/002_seed_config_source_priority.sql`
+
+2. Run staging seed script:  
   `sql/02_seed/001_seed_stg_prices_daily_test_cases.sql`
 
-2. Execute upsert procedure:  
-   `EXEX core.upsert_prices_daily;`
+3. Execute upsert procedure:  
+   `EXEC core.upsert_prices_daily;`
 
-3. Verify results in:  
+4. Verify results in:  
   `core.prices_daily`
 
 ## Procedure Parameters
 
 The upsert procedure supports optional filtering parameters.
 If a parameter is provided, only the matching subset of staging data is processed.
-If no parameters are provided, all staging data is processed.
+If no parameters are provided, all available staging data is processed.
 
 Examples:  
 
@@ -76,6 +93,62 @@ Filter by source:
 Combine filters:  
 `EXEC core.upsert_prices_daily @symbol = 'AAPL', @trade_date = '2026-04-15';`
 
+## Upsert Logic
+
+Data is loaded from `stg.prices_daily` into `core.prices_daily` using the following rules:
+
+### Deduplication
+
+For each `(symbol, trade_date)`:  
+
+- rows are ranked using:
+  - source priority (ascending)
+  - ingested_at (descending)
+  - batch_id (descending)
+  - row_id (descending)
+
+- only the best-ranked row is considered
+
+### Insert
+
+- new `(symbol, trade_date)` combinations are inserted
+
+### Update
+
+Existing rows are updated only if:  
+
+- the new row has a higher-priority source, or
+- the new row has the same source priority but a newer `ingested_at`
+
+### Source Filtering
+
+- only active and configured sources are considered during processing
+
+## Source Priority Configuration
+
+Source prioritization is not hardcoded but managed via the table:
+
+`config.source_priority`
+
+This table defines:  
+
+- which sources are allowed in the pipeline
+- their priority (lower value = higher priority)
+- whether a source is active
+
+Only sources that are:  
+
+- present in `config.source_priority`
+- and marked as `is_active = 1`
+
+are considered during the load from staging to core.
+
+### Behaviour
+
+- Unknown sources are ignored
+- Inactive sources are ignored
+- Existing data in `core` is still compared using the priority of its original source, even if the source is later deactivated
+
 ## Seed Test Cases
 
 The seed script covers the following scenarios:
@@ -85,8 +158,18 @@ The seed script covers the following scenarios:
 - Source priority: a preferred source is selected over lower-priority sources
 - NULL handling: `adj_close` can be `NULL`
 
+## Test Scenarios
+
+Additional test scripts validate update behaviour of the upsert logic:  
+
+- Worse source does not overwrite better source
+- Better source overwrites worse source
+
+See:  
+`sql/05_queries/002_test_update_source_priority.sql`
+
 ## Notes
 
 - Seed scripts should only be executed in the dev database.
 - They will truncate staging and core tables.
-- legacy query-based version for upserting still exists in sql/05_queries/...
+- A legacy query-based version of the upsert logic still exists in sql/05_queries/...

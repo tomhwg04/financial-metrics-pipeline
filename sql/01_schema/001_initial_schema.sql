@@ -15,3 +15,12 @@ IF NOT EXISTS (
 BEGIN
 EXEC('CREATE SCHEMA core;')
 END;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = 'config'
+)
+BEGIN
+EXEC('CREATE SCHEMA config;')
+END;
