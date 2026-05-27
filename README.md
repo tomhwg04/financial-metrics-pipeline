@@ -2,7 +2,7 @@
 
 This project implements a simple data pipeline for financial market data using Microsoft SQL Server.
 
-Data is loaded into a staging layer (`stg`) and transformed into a core layer (`core`) with deduplication, source prioritization and upsert logic.
+Data is loaded into the staging layer (`stg`) and transformed into the core layer (`core`) with deduplication, source prioritization and upsert logic.
 
 ## Architecture
 
@@ -11,6 +11,7 @@ The pipeline is structured into three logical layers:
 - `stg` (staging): raw input data
 - `core`: cleaned, deduplicated and business-ready data
 - `config`: configuration tables controlling pipeline behaviour (e.g. source prioritization)
+- `log`: pipeline execution and monitoring logs
 
 ## Current Scope
 
@@ -18,6 +19,7 @@ The pipeline is structured into three logical layers:
 - staging and core schemas
 - daily prices staging and core tables
 - upsert procedure from `stg.prices_daily` to `core.prices_daily` with optional filtering by `symbol`, `trade_date` and `source`
+- pipeline execution logging via `log.pipeline_run`
 
 ## Project Structure
 
@@ -25,7 +27,7 @@ The pipeline is structured into three logical layers:
 sql/
     00_admin      -- setup / utility scripts
     01_schema     -- create and alter table scripts
-    02_seed       -- test data for stg
+    02_seed       -- test and configuration seed data
     04_procedures -- stored procedures for reusable data pipeline logic (e.g. upserts)
     05_queries    -- legacy and ad-hoc queries (initial load logic, testing)
 ```
@@ -53,7 +55,10 @@ sql/
 7. Seed source priority configuration:  
   `sql/02_seed/002_seed_config_source_priority.sql`
 
-8. Create upsert procedure:  
+8. Create pipeline logging table:  
+  `sql/01_schema/006_create_log_pipeline_run.sql`
+
+9. Create upsert procedure:  
   `sql/04_procedures/001_usp_upsert_prices_daily.sql`
 
 ## Development Workflow
@@ -126,7 +131,7 @@ Existing rows are updated only if:
 
 ## Source Priority Configuration
 
-Source prioritization is not hardcoded but managed via the table:
+Source prioritization is not hardcoded but managed via the table:  
 
 `config.source_priority`
 
@@ -148,6 +153,21 @@ are considered during the load from staging to core.
 - Unknown sources are ignored
 - Inactive sources are ignored
 - Existing data in `core` is still compared using the priority of its original source, even if the source is later deactivated
+
+## Pipeline Logging
+
+Pipeline execution is tracked via:  
+
+`log.pipeline_run`
+
+Each run logs:  
+
+- execution status (`STARTED`, `SUCCESS`, `FAILED`)
+- timestamps
+- applied filters
+- staging and processing row counts
+- inserted and updated row counts
+- error messages for failed executions
 
 ## Seed Test Cases
 
@@ -172,4 +192,5 @@ See:
 
 - Seed scripts should only be executed in the dev database.
 - They will truncate staging and core tables.
-- A legacy query-based version of the upsert logic still exists in sql/05_queries/...
+- A legacy query-based implementation of the upsert logic still exists in `sql/05_queries/...`
+- Pipeline execution details can be inspected in `log.pipeline_run`.

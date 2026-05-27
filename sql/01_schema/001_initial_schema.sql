@@ -24,3 +24,12 @@ IF NOT EXISTS (
 BEGIN
 EXEC('CREATE SCHEMA config;')
 END;
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.schemas
+    WHERE name = 'log'
+)
+BEGIN
+EXEC('CREATE SCHEMA log')
+END;

@@ -1,5 +1,5 @@
 CREATE TABLE stg.prices_daily(
-    row_id bigint IDENTITY(1, 1) PRIMARY KEY,
+    row_id bigint IDENTITY(1, 1),
     batch_id int NOT NULL,
     symbol varchar(20) NOT NULL,
     trade_date date NOT NULL,
@@ -10,5 +10,6 @@ CREATE TABLE stg.prices_daily(
     adj_close decimal(18, 6),
     volume bigint NOT NULL,
     source varchar(40) NOT NULL,
-    ingested_at datetime2 NOT NULL DEFAULT(SYSDATETIME())
+    ingested_at datetime2 NOT NULL DEFAULT(SYSDATETIME()),
+    CONSTRAINT PK_stg_prices_daily PRIMARY KEY(row_id)
 );
