@@ -20,6 +20,7 @@ The pipeline is structured into three logical layers:
 - daily prices staging and core tables
 - upsert procedure from `stg.prices_daily` to `core.prices_daily` with optional filtering by `symbol`, `trade_date` and `source`
 - pipeline execution logging via `log.pipeline_run`
+- performance optimization via dedicated staging indexes
 
 ## Project Structure
 
@@ -58,7 +59,10 @@ sql/
 8. Create pipeline logging table:  
   `sql/01_schema/006_create_log_pipeline_run.sql`
 
-9. Create upsert procedure:  
+9. Create indexes:  
+  `sql/01_schema/007_create_indexes.sql`
+
+10. Create upsert procedure:  
   `sql/04_procedures/001_usp_upsert_prices_daily.sql`
 
 ## Development Workflow
@@ -169,6 +173,20 @@ Each run logs:
 - inserted and updated row counts
 - error messages for failed executions
 
+## Performance
+
+The staging table uses a dedicated index to support efficient full-load processing and deduplication logic.
+
+Current index:  
+
+- `IX_stg_prices_daily_full_load_deduplication`
+
+The index supports:  
+
+- partitioning by `symbol` and `trade_date`
+- row ranking for deduplication
+- full-load execution of the upsert procedure
+
 ## Seed Test Cases
 
 The seed script covers the following scenarios:
@@ -184,6 +202,8 @@ Additional test scripts validate update behaviour of the upsert logic:
 
 - Worse source does not overwrite better source
 - Better source overwrites worse source
+- Pipeline logging validation
+- Error handling validation (TRY/Catch)
 
 See:  
 `sql/05_queries/002_test_update_source_priority.sql`
@@ -192,5 +212,6 @@ See:
 
 - Seed scripts should only be executed in the dev database.
 - They will truncate staging and core tables.
-- A legacy query-based implementation of the upsert logic still exists in `sql/05_queries/...`
+- A legacy query-based implementation of the upsert logic still exists in `sql/05_queries/...`.
 - Pipeline execution details can be inspected in `log.pipeline_run`.
+- Query execution plans can be used to validate index usage and performance improvements.
