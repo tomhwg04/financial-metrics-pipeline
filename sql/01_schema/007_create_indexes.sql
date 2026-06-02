@@ -5,4 +5,5 @@ ON stg.prices_daily(
     ingested_at DESC,
     batch_id DESC,
     row_id DESC
-);
+)
+INCLUDE (source);
