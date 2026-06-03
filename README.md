@@ -1,8 +1,9 @@
-# Financial Metrics SQL Project
+# Financial Metrics Pipeline
 
-This project implements a simple data pipeline for financial market data using Microsoft SQL Server.
+This project implements a financial market data pipeline using Microsoft SQL Server and Python.
 
-Data is loaded into the staging layer (`stg`) and transformed into the core layer (`core`) with deduplication, source prioritization and upsert logic.
+Market data is ingested from external APIs, transformed with `pandas` and loaded into the staging layer (`stg`).
+The pipeline then transforms the data into the core layer (`core`) using deduplication, source prioritization and transactional upsert logic.
 
 ## Architecture
 
@@ -21,6 +22,10 @@ The pipeline is structured into three logical layers:
 - upsert procedure from `stg.prices_daily` to `core.prices_daily` with optional filtering by `symbol`, `trade_date` and `source`
 - pipeline execution logging via `log.pipeline_run`
 - performance optimization via dedicated staging indexes
+- Python based API ingestion via Yahoo Finance (`yfinance`)
+- automated staging-to-core pipeline execution from Python
+- SQL Server connectivity via `pyodbc`
+- DataFrame transformation and schema normalization with `pandas`
 
 ## Project Structure
 
@@ -31,6 +36,8 @@ sql/
     02_seed       -- test and configuration seed data
     04_procedures -- stored procedures for reusable data pipeline logic (e.g. upserts)
     05_queries    -- legacy and ad-hoc queries (initial load logic, testing)
+python/
+    ingestion     -- API ingestion and pipeline execution scripts 
 ```
 
 ## Initial Setup
@@ -78,6 +85,32 @@ sql/
 
 4. Verify results in:  
   `core.prices_daily`
+
+## Python Ingestion
+
+Market data can be ingested directly from external APIs via Python.
+
+Current implementation:  
+
+- Yahoo Finance integration via `yfinance`
+- DataFrame transformation using `pandas`
+- batch inserts into `stg.prices_daily`
+- automated execution of `core.upsert_prices_daily`
+
+Current ingestion script:  
+
+`python/ingestion/load_yahoo_prices.py`
+
+The ingestion workflow currently supports:  
+
+```text
+Yahoo Finance API
+→ pandas transformation
+→ stg.prices_daily
+→ core.upsert_prices_daily
+→ core.prices_daily
+→ pipeline logging
+```
 
 ## Procedure Parameters
 
@@ -175,7 +208,7 @@ Each run logs:
 
 ## Performance
 
-The staging table uses a dedicated index to support efficient full-load processing and deduplication logic.
+The staging table uses a dedicated nonclustered index to support efficient full-load processing and deduplication logic.
 
 Current index:  
 
@@ -207,6 +240,20 @@ Additional test scripts validate update behaviour of the upsert logic:
 
 See:  
 `sql/05_queries/002_test_update_source_priority.sql`
+
+## Python Requirements
+
+Current Python packages:  
+
+- pandas
+- yfinance
+- pyodbc
+- python-dotenv
+
+Recommended environment:  
+
+- Python 3.12
+- local virtual environment (`.venv`)
 
 ## Notes
 
