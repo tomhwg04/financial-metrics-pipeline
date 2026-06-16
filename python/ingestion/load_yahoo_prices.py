@@ -1,16 +1,23 @@
+import os
+
 import pandas as pd
 import pyodbc
 import yfinance as yf
 
-TICKER = "AAPL"
-START_DATE = "2026-04-01"
-END_DATE = "2026-04-10"
-SOURCE = "YahooFinance"
-BATCH_ID = 1
+from dotenv import load_dotenv
 
-SQL_SERVER = r"localhost\SQLEXPRESS"
-SQL_DATABASE = "FinancialMetrics_dev"
-SQL_DRIVER = "ODBC Driver 17 for SQL Server"
+load_dotenv()
+
+TICKER = os.getenv("TICKER")
+START_DATE = os.getenv("START_DATE")
+END_DATE = os.getenv("END_DATE")
+SOURCE = os.getenv("SOURCE")
+
+BATCH_ID = int(os.getenv("BATCH_ID", "1"))
+
+SQL_SERVER = os.getenv("SQL_SERVER")
+SQL_DATABASE = os.getenv("SQL_DATABASE")
+SQL_DRIVER = os.getenv("SQL_DRIVER")
 
 
 def download_yahoo_prices(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:

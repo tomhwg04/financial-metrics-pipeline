@@ -254,6 +254,7 @@ Recommended environment:
 
 - Python 3.12
 - local virtual environment (`.venv`)
+- Environment variables are configured via a local `.env` file.
 
 ## Notes
 
