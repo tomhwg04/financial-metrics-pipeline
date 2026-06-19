@@ -8,7 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TICKER = os.getenv("TICKER")
+TICKERS = [
+    ticker.strip()
+    for ticker in os.getenv("TICKERS", "").split(",")
+    if ticker.strip()
+]
 START_DATE = os.getenv("START_DATE")
 END_DATE = os.getenv("END_DATE")
 SOURCE = os.getenv("SOURCE")
@@ -133,12 +137,16 @@ def execute_upsert_procedure(conn: pyodbc.Connection) -> None:
 
 
 def main() -> None:
-    # Download market data
-    data = download_yahoo_prices(TICKER, START_DATE, END_DATE)
+    # Download and transform market data
+    frames = []
 
-    # Transform data into staging schema
-    data = transform_prices(data, TICKER, SOURCE, BATCH_ID)
-
+    for ticker in TICKERS:
+        raw_data = download_yahoo_prices(ticker, START_DATE, END_DATE)
+        transformed_data = transform_prices(raw_data, ticker, SOURCE, BATCH_ID)
+        frames.append(transformed_data)
+    
+    data = pd.concat(frames, ignore_index=True)
+    
     # Connect to SQL Server
     conn = get_sql_connection()
     print("SQL Server connection successful.")
