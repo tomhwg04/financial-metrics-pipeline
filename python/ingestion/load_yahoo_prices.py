@@ -17,8 +17,6 @@ START_DATE = os.getenv("START_DATE")
 END_DATE = os.getenv("END_DATE")
 SOURCE = os.getenv("SOURCE")
 
-BATCH_ID = int(os.getenv("BATCH_ID", "1"))
-
 SQL_SERVER = os.getenv("SQL_SERVER")
 SQL_DATABASE = os.getenv("SQL_DATABASE")
 SQL_DRIVER = os.getenv("SQL_DRIVER")
@@ -92,6 +90,46 @@ def get_sql_connection() -> pyodbc.Connection:
     return conn
 
 
+def create_batch_run(conn: pyodbc.Connection, source: str) -> int:
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO log.batch_run (
+            source,
+            [status]
+        )
+        OUTPUT INSERTED.batch_id
+        VALUES (?, 'STARTED');
+        """,
+        source
+    )
+
+    batch_id = int(cursor.fetchone()[0])
+    conn.commit()
+
+    return batch_id
+
+
+def finish_batch_run(conn: pyodbc.Connection, batch_id: int, rows_inserted: int) -> None:
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE log.batch_run
+        SET
+            [status] = 'SUCCESS',
+            finished_at = SYSDATETIME(),
+            rows_inserted = ?
+        WHERE batch_id = ?;
+        """,
+        rows_inserted,
+        batch_id
+    )
+
+    conn.commit()
+
+
 def insert_staging_rows(conn: pyodbc.Connection, data: pd.DataFrame) -> None:
     cursor = conn.cursor()
 
@@ -137,19 +175,23 @@ def execute_upsert_procedure(conn: pyodbc.Connection) -> None:
 
 
 def main() -> None:
+    # Connect to SQL Server
+    conn = get_sql_connection()
+    print("SQL Server connection successful.")
+
+    # Create batch run
+    batch_id = create_batch_run(conn, SOURCE)
+    print(f"Created batch run {batch_id}.")
+
     # Download and transform market data
     frames = []
 
     for ticker in TICKERS:
         raw_data = download_yahoo_prices(ticker, START_DATE, END_DATE)
-        transformed_data = transform_prices(raw_data, ticker, SOURCE, BATCH_ID)
+        transformed_data = transform_prices(raw_data, ticker, SOURCE, batch_id)
         frames.append(transformed_data)
     
     data = pd.concat(frames, ignore_index=True)
-    
-    # Connect to SQL Server
-    conn = get_sql_connection()
-    print("SQL Server connection successful.")
 
     # Load staging data
     insert_staging_rows(conn, data)
@@ -158,6 +200,10 @@ def main() -> None:
     # Execute staging-to-core upsert
     execute_upsert_procedure(conn)
     print("Upsert procedure executed successfully.")
+
+    # Finish batch run
+    finish_batch_run(conn, batch_id, len(data))
+    print(f"Batch run {batch_id} finished successfully.")
 
     conn.close()
 
