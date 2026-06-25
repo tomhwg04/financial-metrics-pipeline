@@ -130,6 +130,25 @@ def finish_batch_run(conn: pyodbc.Connection, batch_id: int, rows_inserted: int)
     conn.commit()
 
 
+def fail_batch_run(conn: pyodbc.Connection, batch_id: int, error_message: str) -> None:
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        UPDATE log.batch_run
+        SET
+            [status] = 'FAILED',
+            finished_at = SYSDATETIME(),
+            error_message = ?
+        WHERE batch_id = ?
+        """,
+        error_message,
+        batch_id
+    )
+
+    conn.commit()
+
+
 def insert_staging_rows(conn: pyodbc.Connection, data: pd.DataFrame) -> None:
     cursor = conn.cursor()
 
@@ -175,37 +194,49 @@ def execute_upsert_procedure(conn: pyodbc.Connection) -> None:
 
 
 def main() -> None:
-    # Connect to SQL Server
-    conn = get_sql_connection()
-    print("SQL Server connection successful.")
+    conn = None
+    batch_id = None
 
-    # Create batch run
-    batch_id = create_batch_run(conn, SOURCE)
-    print(f"Created batch run {batch_id}.")
+    try:
+        # Connect to SQL Server
+        conn = get_sql_connection()
+        print("SQL Server connection successful.")
 
-    # Download and transform market data
-    frames = []
+        # Create batch run
+        batch_id = create_batch_run(conn, SOURCE)
+        print(f"Created batch run {batch_id}.")
 
-    for ticker in TICKERS:
-        raw_data = download_yahoo_prices(ticker, START_DATE, END_DATE)
-        transformed_data = transform_prices(raw_data, ticker, SOURCE, batch_id)
-        frames.append(transformed_data)
+        # Download and transform market data
+        frames = []
+
+        for ticker in TICKERS:
+            raw_data = download_yahoo_prices(ticker, START_DATE, END_DATE)
+            transformed_data = transform_prices(raw_data, ticker, SOURCE, batch_id)
+            frames.append(transformed_data)
+        
+        data = pd.concat(frames, ignore_index=True)
+
+        # Load staging data
+        insert_staging_rows(conn, data)
+        print(f"{len(data)} rows inserted into staging.")
+
+        # Execute staging-to-core upsert
+        execute_upsert_procedure(conn)
+        print("Upsert procedure executed successfully.")
+
+        # Finish batch run
+        finish_batch_run(conn, batch_id, len(data))
+        print(f"Batch run {batch_id} finished successfully.")
     
-    data = pd.concat(frames, ignore_index=True)
+    except Exception as error:
+        if conn is not None and batch_id is not None:
+            fail_batch_run(conn, batch_id, str(error))
+        
+        raise
 
-    # Load staging data
-    insert_staging_rows(conn, data)
-    print(f"{len(data)} rows inserted into staging.")
-
-    # Execute staging-to-core upsert
-    execute_upsert_procedure(conn)
-    print("Upsert procedure executed successfully.")
-
-    # Finish batch run
-    finish_batch_run(conn, batch_id, len(data))
-    print(f"Batch run {batch_id} finished successfully.")
-
-    conn.close()
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 if __name__ == "__main__":
