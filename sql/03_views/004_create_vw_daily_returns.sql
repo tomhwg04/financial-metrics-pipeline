@@ -18,7 +18,7 @@ SELECT
     previous_adj_close,
     CASE
         WHEN previous_adj_close IS NULL THEN NULL
-        WHEN previous_adj_close = 0 THEN NULL
+        WHEN previous_adj_close <= 0 THEN NULL
         ELSE adj_close / previous_adj_close - 1
-        END as daily_return
+        END AS daily_return
 FROM price_history;
