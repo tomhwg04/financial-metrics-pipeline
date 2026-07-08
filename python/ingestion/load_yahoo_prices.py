@@ -4,9 +4,8 @@ import pandas as pd
 import pyodbc
 import yfinance as yf
 
-from dotenv import load_dotenv
+from python.utils.db import get_sql_connection
 
-load_dotenv()
 
 TICKERS = [
     ticker.strip()
@@ -16,10 +15,6 @@ TICKERS = [
 START_DATE = os.getenv("START_DATE")
 END_DATE = os.getenv("END_DATE")
 SOURCE = os.getenv("SOURCE")
-
-SQL_SERVER = os.getenv("SQL_SERVER")
-SQL_DATABASE = os.getenv("SQL_DATABASE")
-SQL_DRIVER = os.getenv("SQL_DRIVER")
 
 
 def download_yahoo_prices(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
@@ -75,19 +70,6 @@ def transform_prices(data: pd.DataFrame, ticker: str, source: str, batch_id: int
     ]
 
     return data
-
-
-def get_sql_connection() -> pyodbc.Connection:
-    connection_string = f"""
-    DRIVER={{{SQL_DRIVER}}};
-    SERVER={SQL_SERVER};
-    DATABASE={SQL_DATABASE};
-    Trusted_Connection=yes;
-    """
-
-    conn = pyodbc.connect(connection_string)
-
-    return conn
 
 
 def create_batch_run(conn: pyodbc.Connection, source: str) -> int:
