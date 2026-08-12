@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_momentum_signals
+CREATE OR ALTER VIEW core.vw_momentum_signals
 AS 
 WITH momentum_base AS (
     SELECT

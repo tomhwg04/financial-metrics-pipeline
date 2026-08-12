@@ -3,10 +3,14 @@
 
 # Python cache files
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Environment variables
 .env
 
 # VS Code workspace settings
-.vscode/
+.vscode/*
+!.vscode/settings.json

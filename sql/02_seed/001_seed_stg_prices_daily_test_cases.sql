@@ -154,7 +154,7 @@ VALUES(
 );
 
 -- Test case 5: Inactive source exclusion case
--- Known but inactive source shoult not be loaded into core
+-- Known but inactive source should not be loaded into core
 INSERT INTO stg.prices_daily(
     batch_id, 
     symbol, 

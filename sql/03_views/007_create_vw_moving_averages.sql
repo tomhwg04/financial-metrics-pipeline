@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_moving_averages
+CREATE OR ALTER VIEW core.vw_moving_averages
 AS 
 WITH moving_average_base AS (
     SELECT

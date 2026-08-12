@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_daily_returns 
+CREATE OR ALTER VIEW core.vw_daily_returns 
 AS
 WITH price_history AS (
     SELECT 

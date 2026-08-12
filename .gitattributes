@@ -2,6 +2,6 @@
 *.sql linguist-language=SQL
 *.sql linguist-detectable=true
 
-# Treat documentation as non-code
-docs/** linguist-documentation
+# Treat documentation and Jupyter Notebooks as non-code
 README.md linguist-documentation
+*.ipynb linguist-documentation

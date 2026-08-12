@@ -4,8 +4,9 @@ import pandas as pd
 import pyodbc
 import yfinance as yf
 
-from python.utils.db import get_sql_connection
+from python.utils.db import get_sql_connection, load_environment
 
+load_environment()
 
 TICKERS = [
     ticker.strip()

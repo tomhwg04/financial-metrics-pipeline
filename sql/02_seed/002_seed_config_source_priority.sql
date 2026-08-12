@@ -56,5 +56,5 @@ VALUES(
      'TwelveData',
     8,
     0,
-    'TwelveData API (not active still being tested)'
+    'TwelveData API (inactive - still being tested)'
 );

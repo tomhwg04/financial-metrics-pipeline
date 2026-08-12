@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_data_quality
+CREATE OR ALTER VIEW core.vw_data_quality
 AS
 SELECT 
     p.symbol,

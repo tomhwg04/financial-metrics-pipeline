@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_latest_prices
+CREATE OR ALTER VIEW core.vw_latest_prices
 AS
 WITH ranked_prices AS (
     SELECT

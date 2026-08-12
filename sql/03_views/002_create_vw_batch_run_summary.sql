@@ -1,4 +1,4 @@
-CREATE VIEW log.vw_batch_run_summary
+CREATE OR ALTER VIEW log.vw_batch_run_summary
 AS 
 SELECT
     batch_id,

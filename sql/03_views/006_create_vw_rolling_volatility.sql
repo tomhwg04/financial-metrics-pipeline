@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_rolling_volatility
+CREATE OR ALTER VIEW core.vw_rolling_volatility
 AS
 SELECT
     symbol,

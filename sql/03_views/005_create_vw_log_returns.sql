@@ -1,4 +1,4 @@
-CREATE VIEW core.vw_log_returns
+CREATE OR ALTER VIEW core.vw_log_returns
 AS 
 WITH price_history AS (
     SELECT

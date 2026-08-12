@@ -1,6 +1,6 @@
 CREATE TABLE stg.prices_daily(
     row_id bigint IDENTITY(1, 1),
-    batch_id int NOT NULL,
+    batch_id bigint NOT NULL,
     symbol varchar(20) NOT NULL,
     trade_date date NOT NULL,
     [open] decimal(18, 6) NOT NULL,

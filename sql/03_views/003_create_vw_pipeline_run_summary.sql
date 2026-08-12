@@ -1,4 +1,4 @@
-CREATE VIEW log.vw_pipeline_run_summary
+CREATE OR ALTER VIEW log.vw_pipeline_run_summary
 AS 
 SELECT
     run_id,
