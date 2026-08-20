@@ -1,265 +1,213 @@
 # Financial Metrics Pipeline
 
-This project implements a financial market data pipeline using Microsoft SQL Server and Python.
+An end-to-end financial data engineering and quantitative analysis project built with **Microsoft SQL Server and Python**.
 
-Market data is ingested from external APIs, transformed with `pandas` and loaded into the staging layer (`stg`).
-The pipeline then transforms the data into the core layer (`core`) using deduplication, source prioritization and transactional upsert logic.
+The pipeline ingests daily market data from Yahoo Finance, transforms and loads it into a staging layer, resolves duplicates through configurable source prioritization, and maintains a clean core dataset using transactional logic.
+
+On top of the data pipeline, reusable SQL views and a Jupyter-based analysis layer provide financial metrics such as daily returns, rolling volatility, moving averages, momentum signals and data quality checks.
 
 ## Architecture
 
-The pipeline is structured into three logical layers:  
+The project follows a layered architecture that separates data ingestion, transformation, configuration, monitoring and analysis.
 
-- `stg` (staging): raw input data
-- `core`: cleaned, deduplicated and business-ready data
-- `config`: configuration tables controlling pipeline behaviour (e.g. source prioritization)
-- `log`: pipeline execution and monitoring logs
+```text
+Yahoo Finance
+      ↓
+Python ingestion
+      ↓
+stg.prices_daily
+      ↓
+Source prioritization + deduplication
+      ↓
+core.upsert_prices_daily
+      ↓
+core.prices_daily
+      ↓
+SQL analytical views
+      ↓
+Jupyter market analysis
+```
 
-## Current Scope
+The SQL Server implementation is organized into four schemas:  
 
-- dev and prod databases
-- staging and core schemas
-- daily prices staging and core tables
-- upsert procedure from `stg.prices_daily` to `core.prices_daily` with optional filtering by `symbol`, `trade_date` and `source`
-- pipeline execution logging via `log.pipeline_run`
-- performance optimization via dedicated staging indexes
-- Python based API ingestion via Yahoo Finance (`yfinance`)
-- automated staging-to-core pipeline execution from Python
-- SQL Server connectivity via `pyodbc`
-- DataFrame transformation and schema normalization with `pandas`
+- **`stg`** — staging area for newly ingested market data
+- **`core`** — cleaned, deduplicated and analysis-ready market data
+- **`config`** — pipeline configuration such as source prioritization
+- **`log`** — batch- and pipeline-level execution monitoring
+
+For each `(symbol, trade_date)` combination, staging records are ranked by source priority, ingestion timestamp, batch ID and row ID. Only the highest-ranked record is considered for loading into the core layer.
+
+Existing core records are updated only when the incoming record originates from a higher-priority source or from a source with the same priority and a newer ingestion timestamp.
+
+This design allows multiple market data sources to coexist in staging while maintaining a single preferred record per symbol and trading day in the core layer.
+
+## Key Features
+
+- End-to-end market data pipeline using Python and Microsoft SQL Server
+- Configurable multi-source prioritization and deduplication
+- Transactional staging-to-core upsert logic with rollback handling
+- Batch- and pipeline-level execution logging
+- Reusable SQL views for quantitative metrics and monitoring
+- Financial metrics including returns, volatility, moving averages and momentum
+- Data quality validation
+- Jupyter-based market analysis and visualization
 
 ## Project Structure
 
 ```text
-sql/
-    00_admin      -- setup / utility scripts
-    01_schema     -- create and alter table scripts
-    02_seed       -- test and configuration seed data
-    04_procedures -- stored procedures for reusable data pipeline logic (e.g. upserts)
-    05_queries    -- legacy and ad-hoc queries (initial load logic, testing)
-python/
-    ingestion     -- API ingestion and pipeline execution scripts 
+financial-metrics-pipeline/
+│
+├── python/
+│   ├── analysis/
+│   │   └── market_analysis.ipynb
+│   ├── ingestion/
+│   │   └── load_yahoo_prices.py
+│   ├── utils/
+│   │   └── db.py
+│   └── __init__.py
+│
+├── sql/
+│   ├── 00_admin/
+│   ├── 01_schema/
+│   ├── 02_seed/
+│   ├── 03_views/
+│   ├── 04_procedures/
+│   └── 05_queries/
+│
+├── .env.example
+├── .gitattributes
+├── .gitignore
+├── requirements.txt
+└── README.md
 ```
 
-## Initial Setup
+### Directory Overview
 
-1. Create dev and prod databases:  
-  `sql/00_admin/000_create_databases.sql`
+- **`python/analysis`** ─ Jupyter-based quantitative market analysis
+- **`python/ingestion`** ─ market data ingestion and pipeline execution
+- **`python/utils`** ─ shared utilities such as SQL Server connectivity
+- **`sql/00_admin`** ─ database creation and development utility scripts
+- **`sql/01_schema`** ─ schemas, tables, logging objects and indexes
+- **`sql/02_seed`** ─ source configuration and development test data
+- **`sql/03_views`** ─ operational and quantitative analytical views
+- **`sql/04_procedures`** ─ reusable stored procedures for pipeline logic
+- **`sql/05_queries`** ─ validation, monitoring, testing and example analytical queries
 
-2. Create schemas:  
-  `sql/01_schema/001_initial_schema.sql`
+## Setup
 
-3. Create staging table:  
-  `sql/01_schema/002_create_stg_prices_daily.sql`
+### Database
 
-4. Create core table:  
-  `sql/01_schema/003_create_core_prices_daily.sql`
+1. Run `sql/00_admin/000_create_databases.sql`
+2. Execute all scripts in `sql/01_schema/` in numerical order
+3. Run `sql/02_seed/002_seed_config_source_priority.sql`
+4. Execute all scripts in `sql/03_views/`
+5. Execute `sql/04_procedures/001_create_upsert_prices_daily.sql`
 
-5. Apply schema migration for existing core tables:  
-  `sql/01_schema/004_alter_core_prices_daily_add_last_updated.sql`
+> **Note:** Scripts in `sql/02_seed/` that contain development test data should be executed against `FinancialMetrics_dev`, as they may reset or truncate existing staging and core data.
 
-6. Create source priority table:  
-  `sql/01_schema/005_create_config_source_priority.sql`
+### Python
 
-7. Seed source priority configuration:  
-  `sql/02_seed/002_seed_config_source_priority.sql`
+Create and activate a virtual environment:  
 
-8. Create pipeline logging table:  
-  `sql/01_schema/006_create_log_pipeline_run.sql`
+```bash
+python -m venv .venv
+source .venv/Scripts/activate
+pip install -r requirements.txt
+``` 
 
-9. Create indexes:  
-  `sql/01_schema/007_create_indexes.sql`
+### Environment
 
-10. Create upsert procedure:  
-  `sql/04_procedures/001_usp_upsert_prices_daily.sql`
+Copy `.env.example` to `.env` and adjust the values for your local environment:  
 
-## Development Workflow
+```env
+SQL_SERVER=localhost\SQLEXPRESS
+SQL_DATABASE=FinancialMetrics_dev
+SQL_DRIVER=ODBC Driver 17 for SQL Server
 
-1. Run config seed script:  
-  `sql/02_seed/002_seed_config_source_priority.sql`
-
-2. Run staging seed script:  
-  `sql/02_seed/001_seed_stg_prices_daily_test_cases.sql`
-
-3. Execute upsert procedure:  
-   `EXEC core.upsert_prices_daily;`
-
-4. Verify results in:  
-  `core.prices_daily`
-
-## Python Ingestion
-
-Market data can be ingested directly from external APIs via Python.
-
-Current implementation:  
-
-- Yahoo Finance integration via `yfinance`
-- DataFrame transformation using `pandas`
-- batch inserts into `stg.prices_daily`
-- automated execution of `core.upsert_prices_daily`
-
-Current ingestion script:  
-
-`python/ingestion/load_yahoo_prices.py`
-
-The ingestion workflow currently supports:  
-
-```text
-Yahoo Finance API
-→ pandas transformation
-→ stg.prices_daily
-→ core.upsert_prices_daily
-→ core.prices_daily
-→ pipeline logging
+TICKERS=AAPL, MSFT, NVDA, GOOG, AMZN, META, TSLA
+START_DATE=2026-01-01
+END_DATE=2026-07-01
+SOURCE=YahooFinance
 ```
 
-## Procedure Parameters
+The local `.env` file is excluded from version control.
 
-The upsert procedure supports optional filtering parameters.
-If a parameter is provided, only the matching subset of staging data is processed.
-If no parameters are provided, all available staging data is processed.
+## Running the Pipeline
 
-Examples:  
+Run the ingestion module from the repository root:  
 
-Load all data:  
-`EXEC core.upsert_prices_daily;`
+```bash
+python -m python.ingestion.load_yahoo_prices
+```
 
-Filter by symbol:  
-`EXEC core.upsert_prices_daily @symbol = 'AAPL';`
+The pipeline downloads and transforms Yahoo Finance data, loads it into staging, executes the staging-to-core upsert process and records batch and pipeline execution logs.
 
-Filter by trade date:  
-`EXEC core.upsert_prices_daily @trade_date = '2026-04-15';`
+The current Python ingestion implementation uses Yahoo Finance, while the SQL architecture supports additional sources through `config.source_priority`.
 
-Filter by source:  
-`EXEC core.upsert_prices_daily @source = 'CSV';`
+## Analysis & Notebook
 
-Combine filters:  
-`EXEC core.upsert_prices_daily @symbol = 'AAPL', @trade_date = '2026-04-15';`
+The project includes a Jupyter notebook that uses the SQL analytical views for quantitative market analysis.
 
-## Upsert Logic
+The notebook is located at:  
 
-Data is loaded from `stg.prices_daily` into `core.prices_daily` using the following rules:
+`python/analysis/market_analysis.ipynb`
 
-### Deduplication
+It analyzes the Magnificent 7 using daily market data for the first two quarters of 2026 and covers:  
 
-For each `(symbol, trade_date)`:  
+- daily return analysis
+- return distribution comparison
+- rolling volatility
+- moving average signals
+- 20-day momentum
+- data quality validation
 
-- rows are ranked using:
-  - source priority (ascending)
-  - ingested_at (descending)
-  - batch_id (descending)
-  - row_id (descending)
+The notebook combines SQL-based metric calculation with Python-based analysis and visualization, keeping the financial logic reusable at the database level while using Python for exploration and presentation.
 
-- only the best-ranked row is considered
+The notebook assumes that the pipeline has already populated the database and that all required analytical views have been created before execution.
 
-### Insert
+## Testing, Logging & Data Quality
 
-- new `(symbol, trade_date)` combinations are inserted
+The project includes several mechanisms to validate pipeline behaviour and monitor data quality.
 
-### Update
+### Testing
 
-Existing rows are updated only if:  
+Development seed and query scripts validate insert, update, source-priority, `NULL` handling and error scenarios.
 
-- the new row has a higher-priority source, or
-- the new row has the same source priority but a newer `ingested_at`
+Additional validation queries are available in `sql/05_queries/`.
 
-### Source Filtering
+### Logging
 
-- only active and configured sources are considered during processing
+Pipeline execution is tracked at two levels:  
 
-## Source Priority Configuration
+- **`log.batch_run`** ─ monitors Python ingestion batches
+- **`log.pipeline_run`** ─ monitors staging-to-core processing
 
-Source prioritization is not hardcoded but managed via the table:  
+Logged information includes execution status, timestamps, row counts, inserted and updated records, applied filters and error messages.
 
-`config.source_priority`
+### Data Quality
 
-This table defines:  
+The analytical layer includes dedicated checks for:  
 
-- which sources are allowed in the pipeline
-- their priority (lower value = higher priority)
-- whether a source is active
+- invalid price values
+- invalid volume
+- inconsistent high/low relationships
+- open or close prices outside the daily trading range
+- unusually large daily price movements
 
-Only sources that are:  
+These checks help verify that the dataset is internally consistent before it is used for quantitative analysis.
 
-- present in `config.source_priority`
-- and marked as `is_active = 1`
+## Future Work
 
-are considered during the load from staging to core.
+Potential extensions of the project include:  
 
-### Behaviour
+- integrating additional market data providers to further demonstrate the existing multi-source architecture
+- expanding the analysis to additional assets and longer time horizons
+- adding further technical indicators such as RSI, MACD and Bollinger Bands
+- extending the analytical layer with risk metrics such as cumulative returns, Sharpe ratio and maximum drawdown
+- automating recurring ingestion runs for continuous data updates
 
-- Unknown sources are ignored
-- Inactive sources are ignored
-- Existing data in `core` is still compared using the priority of its original source, even if the source is later deactivated
+## Disclaimer
 
-## Pipeline Logging
+This project was created for educational and portfolio purposes.
 
-Pipeline execution is tracked via:  
-
-`log.pipeline_run`
-
-Each run logs:  
-
-- execution status (`STARTED`, `SUCCESS`, `FAILED`)
-- timestamps
-- applied filters
-- staging and processing row counts
-- inserted and updated row counts
-- error messages for failed executions
-
-## Performance
-
-The staging table uses a dedicated nonclustered index to support efficient full-load processing and deduplication logic.
-
-Current index:  
-
-- `IX_stg_prices_daily_full_load_deduplication`
-
-The index supports:  
-
-- partitioning by `symbol` and `trade_date`
-- row ranking for deduplication
-- full-load execution of the upsert procedure
-
-## Seed Test Cases
-
-The seed script covers the following scenarios:
-
-- Insert: new business key is inserted into core
-- Update: newer version overwrites previous data
-- Source priority: a preferred source is selected over lower-priority sources
-- NULL handling: `adj_close` can be `NULL`
-
-## Test Scenarios
-
-Additional test scripts validate update behaviour of the upsert logic:  
-
-- Worse source does not overwrite better source
-- Better source overwrites worse source
-- Pipeline logging validation
-- Error handling validation (TRY/Catch)
-
-See:  
-`sql/05_queries/002_test_update_source_priority.sql`
-
-## Python Requirements
-
-Current Python packages:  
-
-- pandas
-- yfinance
-- pyodbc
-- python-dotenv
-
-Recommended environment:  
-
-- Python 3.12
-- local virtual environment (`.venv`)
-- Environment variables are configured via a local `.env` file.
-
-## Notes
-
-- Seed scripts should only be executed in the dev database.
-- They will truncate staging and core tables.
-- A legacy query-based implementation of the upsert logic still exists in `sql/05_queries/...`.
-- Pipeline execution details can be inspected in `log.pipeline_run`.
-- Query execution plans can be used to validate index usage and performance improvements.
+It is not intended to provide investment advice, trading recommendations or production-grade financial market infrastructure.
